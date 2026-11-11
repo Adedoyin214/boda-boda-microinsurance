@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "micro-insurance"
+version = "0.1.0"
+description = "Micro-insurance pricing for informal-sector workers: EBCT credibility and Black-Scholes option replication"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = ["numpy>=1.24", "scipy>=1.10", "pandas>=2.0"]
+
+[project.optional-dependencies]
+dashboard = ["dash>=2.14", "plotly>=5.18"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+micro-insurance = "micro_insurance.pipeline:main"
+micro-insurance-dashboard = "micro_insurance.dashboard:main"
+
+[tool.setuptools]
+packages = ["micro_insurance"]
+
+[tool.setuptools.package-data]
+micro_insurance = ["templates/*.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-p no:dash"

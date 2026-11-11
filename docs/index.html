@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Boda-Boda Premium Explorer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Micro-insurance pricing for boda-boda operators: EBCT credibility premiums compared with Black-Scholes option replication, with live deductible, volatility and rate controls.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: header, sticky control strip, KPI row, then paired chart panels grouped by roadmap stage (pricing, credibility, claims data). */
+:root {
+  --plane: #f5f6f4;
+  --surface: #fcfcfb;
+  --ink: #12161b;
+  --ink-2: #4f5560;
+  --muted: #858a8f;
+  --grid: #e3e4df;
+  --axis: #c4c6c0;
+  --line: rgba(18, 22, 27, 0.10);
+  --accent: #2a78d6;
+  --accent-soft: #e4eefb;
+  --s-ebct: #2a78d6;
+  --s-bs: #eb6834;
+  --s-stop: #1baf7a;
+  --s-logn: #6250d6;
+  --s-gamma: #e87ba4;
+  --hist: #c9cdd2;
+  --up: #b4462f;
+  --down: #006300;
+  --seq: #cde2fb,#9ec5f4,#6da7ec,#3987e5,#256abf,#184f95,#0d366b;
+  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --plane: #0f1112; --surface: #1a1b1c; --ink: #eef0ee; --ink-2: #c0c4c6; --muted: #8b9094;
+    --grid: #2b2d2e; --axis: #3a3d3f; --line: rgba(255, 255, 255, 0.10);
+    --accent: #3987e5; --accent-soft: #1b2a3d;
+    --s-ebct: #3987e5; --s-bs: #d95926; --s-stop: #199e70; --s-logn: #9085e9; --s-gamma: #d55181;
+    --hist: #464b50; --up: #ec835a; --down: #0ca30c;
+    --seq: #16263a,#104281,#1c5cab,#2a78d6,#5598e7,#86b6ef,#cde2fb;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --plane: #0f1112; --surface: #1a1b1c; --ink: #eef0ee; --ink-2: #c0c4c6; --muted: #8b9094;
+  --grid: #2b2d2e; --axis: #3a3d3f; --line: rgba(255, 255, 255, 0.10);
+  --accent: #3987e5; --accent-soft: #1b2a3d;
+  --s-ebct: #3987e5; --s-bs: #d95926; --s-stop: #199e70; --s-logn: #9085e9; --s-gamma: #d55181;
+  --hist: #464b50; --up: #ec835a; --down: #0ca30c;
+  --seq: #16263a,#104281,#1c5cab,#2a78d6,#5598e7,#86b6ef,#cde2fb;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--plane); color: var(--ink); font: 14px/1.5 var(--font-body); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--plane); }
+.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+header.top { padding-block: 28px 18px; display: grid; gap: 10px; }
+.eyebrow { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(24px, 3.4vw, 34px); line-height: 1.15; margin: 0; text-wrap: balance; }
+.lede { margin: 0; max-width: 72ch; color: var(--ink-2); }
+.badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.badge { font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); background: var(--surface); }
+.badge.warn { border-color: transparent; background: var(--accent-soft); color: var(--ink); }
+
+.controls { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--plane) 92%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+.controls .wrap { padding-block: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px 22px; align-items: end; }
+.ctl { display: grid; gap: 4px; min-width: 0; }
+.ctl label, .ctl .lbl { font-size: 12px; font-weight: 600; color: var(--ink-2); display: flex; justify-content: space-between; gap: 8px; }
+.ctl output { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
+input[type="range"] { width: 100%; accent-color: var(--accent); margin: 4px 0; }
+select { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { font: inherit; font-size: 13px; padding: 6px 12px; border: 0; background: transparent; color: var(--ink-2); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.reset { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; justify-self: start; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+main { display: grid; gap: 28px; padding-block: 20px 48px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: grid; gap: 2px; }
+.kpi .k-label { font-size: 12px; color: var(--ink-2); }
+.kpi .k-value { font-family: var(--font-display); font-size: 28px; font-weight: 600; line-height: 1.2; }
+.kpi .k-value small { font-size: 13px; font-weight: 500; color: var(--muted); margin-left: 4px; font-family: var(--font-body); }
+.kpi .k-note { font-size: 12px; color: var(--muted); }
+
+section { display: grid; gap: 12px; }
+.sec-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+h2 { font-family: var(--font-display); font-size: 19px; font-weight: 600; margin: 0; }
+.sec-head p { margin: 0; color: var(--muted); font-size: 13px; max-width: 70ch; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 14px 8px; min-width: 0; display: grid; gap: 6px; align-content: start; }
+.panel h3 { font-size: 14px; font-weight: 600; margin: 0; }
+.panel .cap { font-size: 12px; color: var(--muted); margin: 0; }
+.chart { width: 100%; height: 320px; }
+.greeks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; }
+.greeks .chart { height: 150px; }
+.greeks .g-title { font-size: 12px; color: var(--ink-2); margin: 4px 0 0 4px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 14px; height: 4px; border-radius: 2px; display: inline-block; }
+.legend i.dot { width: 10px; height: 10px; border-radius: 3px; }
+
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+th:first-child, td:first-child { text-align: left; }
+tbody tr.sel { background: var(--accent-soft); }
+td.up { color: var(--up); } td.down { color: var(--down); }
+.fact { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 16px; margin: 4px 0 6px; }
+.fact div { display: grid; }
+.fact b { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.fact span { font-size: 12px; color: var(--muted); }
+
+.notes { color: var(--ink-2); font-size: 13px; display: grid; gap: 8px; max-width: 90ch; }
+.notes p { margin: 0; }
+code { font-size: 12px; background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+footer { color: var(--muted); font-size: 12px; padding-block: 0 32px; }
+.noscript { padding: 16px; background: var(--accent-soft); border-radius: var(--radius); }
+
+@media (max-width: 860px) { .grid2 { grid-template-columns: minmax(0, 1fr); } .chart { height: 290px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<header class="top wrap">
+  <div class="eyebrow">MScFE industrial project · Micro-insurance for informal workers</div>
+  <h1>Boda-Boda Premium Explorer</h1>
+  <p class="lede">Accident and health cover for motorcycle-taxi operators, priced two ways: Empirical Bayes credibility (EBCT) from each fleet's claims history, and a Black-Scholes call on the annual treatment cost, with the policy deductible as the strike. Move the controls to re-price every fleet.</p>
+  <div class="badges" id="badges"></div>
+</header>
+
+<div class="controls">
+  <div class="wrap">
+    <div class="ctl"><label for="k">Deductible K <output id="k-out"></output></label><input id="k" type="range" min="0" step="50"></div>
+    <div class="ctl"><label for="sigma">Volatility σ <output id="sigma-out"></output></label><input id="sigma" type="range" min="0.05" max="1" step="0.01"></div>
+    <div class="ctl"><label for="r">Risk-free rate r <output id="r-out"></output></label><input id="r" type="range" min="0" max="0.25" step="0.005"></div>
+    <div class="ctl"><span class="lbl">Credibility model</span>
+      <div class="seg" role="group" aria-label="EBCT model">
+        <button type="button" id="m1" data-model="1" aria-pressed="false">Model I</button>
+        <button type="button" id="m2" data-model="2" aria-pressed="true">Model II</button>
+      </div></div>
+    <div class="ctl"><label for="fleet">Fleet in detail charts</label><select id="fleet"></select></div>
+    <button type="button" class="reset" id="reset">Reset to estimates</button>
+  </div>
+</div>
+
+<main class="wrap">
+  <noscript><div class="noscript">This dashboard needs JavaScript to draw its charts.</div></noscript>
+  <div class="kpis" id="kpis"></div>
+
+  <section>
+    <div class="sec-head"><h2>Premiums</h2><p>Underlying S is each fleet's EBCT credibility premium. The option pays the yearly cost above K; the stop-loss benchmark applies K to each claim instead.</p></div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Premium by fleet</h3>
+        <div class="legend"><span><i style="background:var(--s-ebct)"></i>EBCT credibility</span><span><i style="background:var(--s-bs)"></i>Black-Scholes call</span><span><i style="background:var(--s-stop)"></i>Stop-loss (per claim)</span></div>
+        <div class="chart" id="c-fleets" role="img" aria-label="Grouped bar chart of premiums by fleet"></div>
+      </div>
+      <div class="panel">
+        <h3 id="t-vsk">Premium vs deductible</h3>
+        <div class="legend"><span><i style="background:var(--s-bs)"></i>Black-Scholes call</span><span><i style="background:var(--s-stop)"></i>Stop-loss (per claim)</span><span><i style="background:var(--muted)"></i>Intrinsic max(S − K, 0)</span><span><i style="background:var(--s-ebct)"></i>EBCT premium S</span></div>
+        <div class="chart" id="c-vsk" role="img" aria-label="Line chart of premium against deductible"></div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h3 id="t-heat">Option premium over K × σ</h3>
+        <p class="cap">Volatility only matters once the deductible nears the expected cost. The marker is the current setting.</p>
+        <div class="chart" id="c-heat" role="img" aria-label="Heatmap of option premium by deductible and volatility"></div>
+      </div>
+      <div class="panel">
+        <h3 id="t-greeks">Greeks vs deductible</h3>
+        <p class="cap">Sensitivities of the option premium; the vertical line is the current K.</p>
+        <div class="greeks">
+          <div><div class="g-title">Delta ∂C/∂S</div><div class="chart" id="g-delta"></div></div>
+          <div><div class="g-title">Gamma ∂²C/∂S²</div><div class="chart" id="g-gamma"></div></div>
+          <div><div class="g-title">Vega ∂C/∂σ (per 1.00 of vol)</div><div class="chart" id="g-vega"></div></div>
+          <div><div class="g-title">Rho ∂C/∂r (per 1.00 of rate)</div><div class="chart" id="g-rho"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Comparison table</h3>
+      <div class="tbl-wrap"><table id="tbl-comp"></table></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Credibility (EBCT)</h2><p>How far each fleet's premium leans on its own experience versus the portfolio mean.</p></div>
+    <div class="grid2">
+      <div class="panel">
+        <h3 id="t-z">Credibility factor Z</h3>
+        <div class="fact" id="cred-facts"></div>
+        <div class="chart" id="c-z" role="img" aria-label="Bar chart of credibility factor by fleet"></div>
+      </div>
+      <div class="panel">
+        <h3>Claims per operator, X<sub>ij</sub> = Y<sub>ij</sub> / P<sub>ij</sub></h3>
+        <p class="cap">KES per operator-year by fleet and policy year: the raw experience EBCT smooths.</p>
+        <div class="chart" id="c-panel" role="img" aria-label="Heat table of claims per operator by fleet and year"></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Claims data and stress tests</h2><p>Week 1 fits and Week 3 volatility that feed the prices above.</p></div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Claim severity</h3>
+        <div class="legend"><span><i class="dot" style="background:var(--hist)"></i>Observed claims</span><span><i style="background:var(--s-logn)"></i>Log-normal fit</span><span><i style="background:var(--s-gamma)"></i>Gamma fit</span></div>
+        <div class="chart" id="c-sev" role="img" aria-label="Histogram of claim amounts with fitted densities"></div>
+        <div class="tbl-wrap"><table id="tbl-sev"></table></div>
+      </div>
+      <div class="panel">
+        <h3>Treatment-cost index</h3>
+        <div class="fact" id="vol-facts"></div>
+        <div class="chart" id="c-cost" role="img" aria-label="Line chart of the treatment cost index"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3 id="t-stress">Stress test</h3>
+      <p class="cap">One factor at a time against the current setting. Cost shocks are relative; volatility and rate shocks are absolute.</p>
+      <div class="tbl-wrap"><table id="tbl-stress"></table></div>
+    </div>
+  </section>
+
+  <section class="notes">
+    <h2>How to read this</h2>
+    <p><b>Option mapping.</b> S = expected annual treatment cost per operator (the EBCT premium), K = deductible, T − t = 1 year, r = short sovereign rate, σ = volatility of the treatment-cost index. Premium C = S·N(d₁) − K·e<sup>−rT</sup>·N(d₂). With K = 0 and r = 0 the option premium equals the EBCT premium.</p>
+    <p><b>Limits.</b> Treatment costs are not traded, so the formula is a lognormal pricing model with r as the discount rate, not an arbitrage price. Defaults for K and r are illustrative. Gross premiums would add expense and risk loadings.</p>
+    <p><b>Reproduce.</b> <code>python -m micro_insurance.pipeline</code> computes the inputs; <code>python -m micro_insurance.static_dashboard</code> rebuilds this page.</p>
+  </section>
+</main>
+<footer class="wrap" id="foot"></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.2/plotly.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  const D = {"meta":{"generated":"2026-11-11","synthetic":true,"source":"synthetic portfolio (seed 2026)","n_fleets":8,"years":[2020,2024],"n_claims":1189,"exposure":10050.0,"currency":"KES"},"defaults":{"k":1000.0,"r":0.08,"sigma":0.249,"term":1.0,"k_max":12000.0},"fleets":["Fleet-A","Fleet-B","Fleet-C","Fleet-D","Fleet-E","Fleet-F","Fleet-G","Fleet-H"],"volume":[1886.0,1642.0,474.0,995.0,558.0,1700.0,1288.0,1507.0],"frequency":[0.089077,0.132156,0.06962,0.2,0.129032,0.113529,0.088509,0.128069],"ebct1":{"model":"EBCT Model I","grand_mean":3323.476742,"within":1408177.37907,"between":1417020.774042,"k":0.993759,"risk_means":[2945.472867,3576.9213,2248.143665,6238.349854,3423.374545,2889.730726,1970.050205,3295.770776],"z":[0.834201,0.834201,0.834201,0.834201,0.834201,0.834201,0.834201,0.834201],"premium":[3008.145525,3534.90045,2426.432794,5755.066862,3406.811591,2961.645373,2194.446946,3300.364397]},"ebct2":{"model":"EBCT Model II","grand_mean":3247.639747,"within":175571886.993244,"between":1050707.76176,"k":167.098687,"risk_means":[2940.000345,3545.014233,1999.002025,5865.579206,3557.242742,2918.976671,1960.708339,3328.900491],"z":[0.918611,0.907634,0.739356,0.85621,0.76955,0.910504,0.885163,0.900186],"premium":[2965.038664,3517.547027,2324.452268,5489.144528,3485.894862,2948.390846,2108.495255,3320.789521]},"panel":{"years":[2020,2021,2022,2023,2024],"x":[[2601.27,3673.28,2343.24,3349.8,2759.77],[2913.69,4360.5,3825.34,3562.77,3222.3],[6022.97,550.84,1020.34,1881.76,1764.81],[9224.0,4904.06,5816.96,6384.14,4862.59],[1742.53,3137.67,4681.96,4259.25,3295.46],[2018.06,3404.22,3616.25,2250.88,3159.24],[2447.87,1564.25,1699.57,2252.68,1885.87],[1990.2,3719.73,4212.65,3666.77,2889.51]]},"poisson":{"rate":0.118308,"dispersion_ratio":3.152,"p_value":1.26e-10},"severity":{"best":"lognormal","fits":{"gamma":{"params":{"shape":1.339534,"scale":20492.652208},"aic":26627.8,"ks":0.0713,"ks_p":1.1e-05,"mean":27450.6},"lognormal":{"params":{"mu":9.80256,"sigma":0.909149},"aic":26462.2,"ks":0.0184,"ks_p":0.809274,"mean":27332.6}},"hist":{"centers":[2008.5,6025.6,10042.7,14059.8,18076.9,22094.0,26111.0,30128.1,34145.2,38162.3,42179.4,46196.4,50213.5,54230.6,58247.7,62264.8,66281.9,70298.9,74316.0,78333.1,82350.2,86367.3,90384.3,94401.4,98418.5,102435.6,106452.7,110469.8,114486.8,118503.9,122521.0,126538.1,130555.2,134572.3,138589.3,142606.4,146623.5,150640.6,154657.7,158674.7],"counts":[60,165,168,134,117,99,78,55,51,40,39,21,23,12,19,17,14,10,7,4,5,5,2,7,2,2,2,2,3,2,1,4,2,1,1,0,0,2,0,1],"width":4017.1},"density_x":[1004.3,2008.5,3012.8,4017.1,5021.4,6025.6,7029.9,8034.2,9038.4,10042.7,11047.0,12051.2,13055.5,14059.8,15064.1,16068.3,17072.6,18076.9,19081.1,20085.4,21089.7,22094.0,23098.2,24102.5,25106.8,26111.0,27115.3,28119.6,29123.8,30128.1,31132.4,32136.7,33140.9,34145.2,35149.5,36153.7,37158.0,38162.3,39166.6,40170.8,41175.1,42179.4,43183.6,44187.9,45192.2,46196.4,47200.7,48205.0,49209.3,50213.5,51217.8,52222.1,53226.3,54230.6,55234.9,56239.2,57243.4,58247.7,59252.0,60256.2,61260.5,62264.8,63269.0,64273.3,65277.6,66281.9,67286.1,68290.4,69294.7,70298.9,71303.2,72307.5,73311.8,74316.0,75320.3,76324.6,77328.8,78333.1,79337.4,80341.6,81345.9,82350.2,83354.5,84358.7,85363.0,86367.3,87371.5,88375.8,89380.1,90384.3,91388.6,92392.9,93397.2,94401.4,95405.7,96410.0,97414.2,98418.5,99422.8,100427.1,101431.3,102435.6,103439.9,104444.1,105448.4,106452.7,107456.9,108461.2,109465.5,110469.8,111474.0,112478.3,113482.6,114486.8,115491.1,116495.4,117499.7,118503.9,119508.2,120512.5,121516.7,122521.0,123525.3,124529.5,125533.8,126538.1,127542.4,128546.6,129550.9,130555.2,131559.4,132563.7,133568.0,134572.3,135576.5,136580.8,137585.1,138589.3,139593.6,140597.9,141602.1,142606.4,143610.7,144615.0,145619.2,146623.5,147627.8,148632.0,149636.3,150640.6,151644.9,152649.1,153653.4,154657.7,155661.9,156666.2,157670.5,158674.7,159679.0,160683.3],"density":{"gamma":[89.333,107.631,117.61,123.476,126.825,128.471,128.9,128.428,127.275,125.602,123.529,121.148,118.532,115.739,112.816,109.8,106.724,103.611,100.484,97.359,94.251,91.172,88.132,85.139,82.198,79.317,76.497,73.744,71.059,68.444,65.9,63.428,61.029,58.702,56.448,54.265,52.153,50.11,48.136,46.23,44.389,42.614,40.901,39.25,37.659,36.127,34.651,33.231,31.864,30.549,29.284,28.068,26.899,25.776,24.696,23.66,22.664,21.708,20.79,19.909,19.063,18.252,17.474,16.727,16.012,15.325,14.667,14.036,13.431,12.851,12.296,11.763,11.253,10.765,10.297,9.849,9.419,9.008,8.615,8.238,7.877,7.531,7.201,6.884,6.582,6.292,6.014,5.749,5.495,5.252,5.02,4.797,4.585,4.381,4.187,4.001,3.823,3.653,3.49,3.335,3.186,3.044,2.908,2.778,2.654,2.535,2.421,2.313,2.209,2.11,2.015,1.925,1.838,1.755,1.677,1.601,1.529,1.46,1.394,1.331,1.271,1.214,1.159,1.107,1.056,1.009,0.963,0.919,0.878,0.838,0.8,0.764,0.729,0.696,0.664,0.634,0.605,0.578,0.552,0.526,0.502,0.48,0.458,0.437,0.417,0.398,0.38,0.362,0.346,0.33,0.315,0.301,0.287,0.274,0.261,0.249,0.238,0.227,0.217,0.207],"lognormal":[13.319,56.229,99.727,132.738,154.658,167.565,173.776,175.223,173.376,169.316,163.818,157.437,150.565,143.474,136.357,129.343,122.519,115.943,109.648,103.653,97.964,92.583,87.504,82.716,78.209,73.969,69.984,66.239,62.72,59.414,56.308,53.389,50.645,48.065,45.639,43.357,41.208,39.185,37.279,35.483,33.789,32.191,30.683,29.259,27.914,26.642,25.439,24.301,23.224,22.204,21.237,20.321,19.452,18.627,17.844,17.1,16.394,15.722,15.084,14.476,13.898,13.347,12.823,12.323,11.846,11.392,10.958,10.544,10.149,9.772,9.411,9.066,8.736,8.421,8.119,7.831,7.554,7.289,7.035,6.792,6.559,6.335,6.121,5.915,5.718,5.528,5.346,5.171,5.002,4.841,4.685,4.536,4.392,4.254,4.12,3.992,3.869,3.75,3.635,3.525,3.419,3.316,3.217,3.122,3.03,2.941,2.855,2.772,2.692,2.615,2.541,2.469,2.399,2.332,2.267,2.204,2.143,2.084,2.027,1.972,1.919,1.867,1.818,1.769,1.722,1.677,1.633,1.59,1.549,1.509,1.47,1.433,1.396,1.361,1.327,1.293,1.261,1.23,1.199,1.17,1.141,1.113,1.086,1.06,1.035,1.01,0.986,0.962,0.94,0.917,0.896,0.875,0.855,0.835,0.816,0.797,0.779,0.761,0.744,0.727]},"p99":160683.0},"stop_loss":{"k":[0.0,50.0,100.0,150.0,200.0,250.0,300.0,350.0,400.0,450.0,500.0,550.0,600.0,650.0,700.0,750.0,800.0,850.0,900.0,950.0,1000.0,1050.0,1100.0,1150.0,1200.0,1250.0,1300.0,1350.0,1400.0,1450.0,1500.0,1550.0,1600.0,1650.0,1700.0,1750.0,1800.0,1850.0,1900.0,1950.0,2000.0,2050.0,2100.0,2150.0,2200.0,2250.0,2300.0,2350.0,2400.0,2450.0,2500.0,2550.0,2600.0,2650.0,2700.0,2750.0,2800.0,2850.0,2900.0,2950.0,3000.0,3050.0,3100.0,3150.0,3200.0,3250.0,3300.0,3350.0,3400.0,3450.0,3500.0,3550.0,3600.0,3650.0,3700.0,3750.0,3800.0,3850.0,3900.0,3950.0,4000.0,4050.0,4100.0,4150.0,4200.0,4250.0,4300.0,4350.0,4400.0,4450.0,4500.0,4550.0,4600.0,4650.0,4700.0,4750.0,4800.0,4850.0,4900.0,4950.0,5000.0,5050.0,5100.0,5150.0,5200.0,5250.0,5300.0,5350.0,5400.0,5450.0,5500.0,5550.0,5600.0,5650.0,5700.0,5750.0,5800.0,5850.0,5900.0,5950.0,6000.0,6050.0,6100.0,6150.0,6200.0,6250.0,6300.0,6350.0,6400.0,6450.0,6500.0,6550.0,6600.0,6650.0,6700.0,6750.0,6800.0,6850.0,6900.0,6950.0,7000.0,7050.0,7100.0,7150.0,7200.0,7250.0,7300.0,7350.0,7400.0,7450.0,7500.0,7550.0,7600.0,7650.0,7700.0,7750.0,7800.0,7850.0,7900.0,7950.0,8000.0,8050.0,8100.0,8150.0,8200.0,8250.0,8300.0,8350.0,8400.0,8450.0,8500.0,8550.0,8600.0,8650.0,8700.0,8750.0,8800.0,8850.0,8900.0,8950.0,9000.0,9050.0,9100.0,9150.0,9200.0,9250.0,9300.0,9350.0,9400.0,9450.0,9500.0,9550.0,9600.0,9650.0,9700.0,9750.0,9800.0,9850.0,9900.0,9950.0,10000.0,10050.0,10100.0,10150.0,10200.0,10250.0,10300.0,10350.0,10400.0,10450.0,10500.0,10550.0,10600.0,10650.0,10700.0,10750.0,10800.0,10850.0,10900.0,10950.0,11000.0,11050.0,11100.0,11150.0,11200.0,11250.0,11300.0,11350.0,11400.0,11450.0,11500.0,11550.0,11600.0,11650.0,11700.0,11750.0,11800.0,11850.0,11900.0,11950.0,12000.0],"per_claim":[27332.629,27282.629,27232.629,27182.629,27132.629,27082.629,27032.6291,26982.6294,26932.6299,26882.6308,26832.6324,26782.6349,26732.6386,26682.644,26632.6515,26582.6616,26532.6749,26482.6921,26432.7137,26382.7407,26332.7737,26282.8136,26232.8613,26182.9176,26132.9837,26083.0604,26033.1489,25983.2501,25933.3651,25883.4951,25833.6412,25783.8045,25733.9862,25684.1874,25634.4094,25584.6533,25534.9204,25485.2119,25435.5289,25385.8727,25336.2446,25286.6456,25237.0771,25187.5402,25138.0362,25088.5663,25039.1316,24989.7333,24940.3727,24891.0508,24841.7689,24792.5281,24743.3296,24694.1744,24645.0637,24595.9986,24546.9802,24498.0095,24449.0877,24400.2157,24351.3947,24302.6256,24253.9094,24205.2472,24156.6399,24108.0885,24059.5939,24011.1571,23962.7789,23914.4604,23866.2023,23818.0056,23769.871,23721.7996,23673.7919,23625.849,23577.9715,23530.1603,23482.4162,23434.7398,23387.1319,23339.5932,23292.1245,23244.7264,23197.3997,23150.1449,23102.9627,23055.8538,23008.8187,22961.8582,22914.9727,22868.1629,22821.4293,22774.7725,22728.193,22681.6914,22635.2681,22588.9237,22542.6587,22496.4735,22450.3686,22404.3445,22358.4016,22312.5403,22266.761,22221.0643,22175.4503,22129.9196,22084.4726,22039.1095,21993.8308,21948.6367,21903.5276,21858.5039,21813.5659,21768.7138,21723.9479,21679.2686,21634.6761,21590.1706,21545.7525,21501.422,21457.1793,21413.0246,21368.9583,21324.9804,21281.0912,21237.2909,21193.5797,21149.9577,21106.4252,21062.9824,21019.6292,20976.366,20933.1929,20890.11,20847.1174,20804.2153,20761.4038,20718.683,20676.0529,20633.5138,20591.0657,20548.7086,20506.4427,20464.268,20422.1847,20380.1927,20338.2922,20296.4831,20254.7655,20213.1395,20171.6052,20130.1624,20088.8114,20047.552,20006.3843,19965.3083,19924.3241,19883.4316,19842.6308,19801.9218,19761.3044,19720.7787,19680.3448,19640.0024,19599.7517,19559.5926,19519.5251,19479.5491,19439.6646,19399.8715,19360.1699,19320.5595,19281.0405,19241.6126,19202.276,19163.0304,19123.8759,19084.8123,19045.8397,19006.9578,18968.1666,18929.4661,18890.8562,18852.3367,18813.9077,18775.5689,18737.3203,18699.1618,18661.0932,18623.1146,18585.2257,18547.4266,18509.7169,18472.0968,18434.5659,18397.1243,18359.7718,18322.5083,18285.3336,18248.2476,18211.2503,18174.3414,18137.5209,18100.7886,18064.1444,18027.5881,17991.1196,17954.7388,17918.4455,17882.2396,17846.1209,17810.0894,17774.1447,17738.2869,17702.5158,17666.8311,17631.2328,17595.7208,17560.2947,17524.9546,17489.7001,17454.5313,17419.4479,17384.4497,17349.5367,17314.7086,17279.9652,17245.3065,17210.7322,17176.2422,17141.8363,17107.5144,17073.2762,17039.1217,17005.0506,16971.0627,16937.158,16903.3362,16869.5971]},"bootstrap":{"estimate":3323.477,"std_error":256.244,"ci_low":2832.457,"ci_high":3848.895},"gbm":{"daily":{"sigma":0.24902,"mu":-0.22584,"n":1095},"monthly":{"sigma":0.22991,"mu":-0.20538,"n":35}},"cost_index":{"dates":["2022-01-02","2022-01-09","2022-01-16","2022-01-23","2022-01-30","2022-02-06","2022-02-13","2022-02-20","2022-02-27","2022-03-06","2022-03-13","2022-03-20","2022-03-27","2022-04-03","2022-04-10","2022-04-17","2022-04-24","2022-05-01","2022-05-08","2022-05-15","2022-05-22","2022-05-29","2022-06-05","2022-06-12","2022-06-19","2022-06-26","2022-07-03","2022-07-10","2022-07-17","2022-07-24","2022-07-31","2022-08-07","2022-08-14","2022-08-21","2022-08-28","2022-09-04","2022-09-11","2022-09-18","2022-09-25","2022-10-02","2022-10-09","2022-10-16","2022-10-23","2022-10-30","2022-11-06","2022-11-13","2022-11-20","2022-11-27","2022-12-04","2022-12-11","2022-12-18","2022-12-25","2023-01-01","2023-01-08","2023-01-15","2023-01-22","2023-01-29","2023-02-05","2023-02-12","2023-02-19","2023-02-26","2023-03-05","2023-03-12","2023-03-19","2023-03-26","2023-04-02","2023-04-09","2023-04-16","2023-04-23","2023-04-30","2023-05-07","2023-05-14","2023-05-21","2023-05-28","2023-06-04","2023-06-11","2023-06-18","2023-06-25","2023-07-02","2023-07-09","2023-07-16","2023-07-23","2023-07-30","2023-08-06","2023-08-13","2023-08-20","2023-08-27","2023-09-03","2023-09-10","2023-09-17","2023-09-24","2023-10-01","2023-10-08","2023-10-15","2023-10-22","2023-10-29","2023-11-05","2023-11-12","2023-11-19","2023-11-26","2023-12-03","2023-12-10","2023-12-17","2023-12-24","2023-12-31","2024-01-07","2024-01-14","2024-01-21","2024-01-28","2024-02-04","2024-02-11","2024-02-18","2024-02-25","2024-03-03","2024-03-10","2024-03-17","2024-03-24","2024-03-31","2024-04-07","2024-04-14","2024-04-21","2024-04-28","2024-05-05","2024-05-12","2024-05-19","2024-05-26","2024-06-02","2024-06-09","2024-06-16","2024-06-23","2024-06-30","2024-07-07","2024-07-14","2024-07-21","2024-07-28","2024-08-04","2024-08-11","2024-08-18","2024-08-25","2024-09-01","2024-09-08","2024-09-15","2024-09-22","2024-09-29","2024-10-06","2024-10-13","2024-10-20","2024-10-27","2024-11-03","2024-11-10","2024-11-17","2024-11-24","2024-12-01","2024-12-08","2024-12-15","2024-12-22","2024-12-29","2025-01-05"],"values":[101.08,98.658,99.484,95.671,88.771,94.29,91.182,90.984,89.346,82.727,82.361,80.767,84.388,82.195,82.212,80.5,78.695,77.071,75.019,73.156,73.963,75.271,70.559,71.355,70.821,72.338,69.485,67.251,67.57,68.981,72.515,70.732,68.181,70.176,70.815,72.783,70.633,68.431,68.758,64.642,67.499,66.822,65.026,68.328,70.29,69.204,69.956,70.18,70.967,72.585,74.559,75.059,72.07,71.124,72.667,73.736,66.022,63.829,65.017,69.849,67.972,68.046,69.441,65.111,64.857,63.096,64.683,61.798,57.528,55.632,53.656,53.766,55.731,55.809,55.788,53.252,53.678,52.038,50.906,52.216,53.324,55.275,54.394,51.068,49.307,48.527,48.147,48.463,47.582,46.117,45.467,47.256,44.535,44.744,45.811,45.032,45.64,45.144,46.589,47.318,48.509,49.394,51.528,51.081,51.539,53.924,54.537,57.294,58.759,61.143,61.032,57.91,57.713,58.608,55.115,53.494,52.019,52.64,50.202,49.321,47.734,47.943,47.696,49.263,49.317,52.585,52.646,50.56,51.02,52.479,50.721,50.251,48.678,50.448,51.069,49.505,49.156,50.955,51.992,50.539,50.761,47.4,47.204,48.267,48.569,50.717,49.23,49.084,49.003,46.456,44.691,46.034,45.217,47.952,45.34,45.278,45.68,46.301]}};
+  if (!D) { document.getElementById("kpis").textContent = "No data embedded. Rebuild with python -m micro_insurance.static_dashboard."; return; }
+  const $ = (id) => document.getElementById(id);
+  const CUR = D.meta.currency;
+  const fmt0 = (v) => Number(v).toLocaleString("en-US", { maximumFractionDigits: 0 });
+  const fmt = (v, d) => Number(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const pct = (v, d = 0) => (v * 100).toFixed(d) + "%";
+
+  // ---------------------------------------------------------------- math (mirrors micro_insurance/pricing.py)
+  function erfc(x) { // Numerical Recipes erfcc, |rel err| < 1.2e-7
+    const z = Math.abs(x), t = 1 / (1 + 0.5 * z);
+    const r = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 + t * (0.09678418 + t * (-0.18628806 +
+      t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+    return x >= 0 ? r : 2 - r;
+  }
+  const N = (x) => 0.5 * erfc(-x / Math.SQRT2);
+  const npdf = (x) => Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
+  function bs(s, k, tau, r, sig) {
+    const disc = Math.exp(-r * tau);
+    if (!(k > 0 && sig * Math.sqrt(tau) > 0)) {
+      const itm = s > k * disc ? 1 : 0;
+      return { price: Math.max(s - k * disc, 0), delta: itm, gamma: 0, vega: 0, rho: k * tau * disc * itm, theta: -r * k * disc * itm };
+    }
+    const st = Math.sqrt(tau), v = sig * st;
+    const d1 = (Math.log(s / k) + (r + 0.5 * sig * sig) * tau) / v, d2 = d1 - v;
+    return {
+      price: s * N(d1) - k * disc * N(d2), delta: N(d1), gamma: npdf(d1) / (s * v), vega: s * npdf(d1) * st,
+      rho: k * tau * disc * N(d2), theta: -s * npdf(d1) * sig / (2 * st) - r * k * disc * N(d2),
+    };
+  }
+  function stopLossPerClaim(k) { // linear interpolation of the exported E[(X-K)+] curve
+    const xs = D.stop_loss.k, ys = D.stop_loss.per_claim;
+    if (k <= xs[0]) return ys[0];
+    if (k >= xs[xs.length - 1]) return ys[ys.length - 1];
+    let i = 1; while (xs[i] < k) i++;
+    const w = (k - xs[i - 1]) / (xs[i] - xs[i - 1]);
+    return ys[i - 1] + w * (ys[i] - ys[i - 1]);
+  }
+  const linspace = (a, b, n) => Array.from({ length: n }, (_, i) => a + (b - a) * i / (n - 1));
+
+  // ---------------------------------------------------------------- state
+  const DEF = D.defaults, KMAX = D.defaults.k_max, TERM = D.defaults.term;
+  const state = { k: DEF.k, sigma: Math.round(DEF.sigma * 100) / 100, r: DEF.r, model: 2, fleet: 0 };
+  const cred = () => (state.model === 1 ? D.ebct1 : D.ebct2);
+
+  // ---------------------------------------------------------------- theme
+  let T = {};
+  function readTheme() {
+    const cs = getComputedStyle(document.documentElement), g = (n) => cs.getPropertyValue(n).trim();
+    T = { ink: g("--ink"), ink2: g("--ink-2"), muted: g("--muted"), grid: g("--grid"), axis: g("--axis"), surface: g("--surface"),
+      ebct: g("--s-ebct"), bs: g("--s-bs"), stop: g("--s-stop"), logn: g("--s-logn"), gamma: g("--s-gamma"), hist: g("--hist"),
+      seq: g("--seq").split(",").map((s) => s.trim()), font: g("--font-body") };
+  }
+  const seqScale = () => T.seq.map((c, i) => [i / (T.seq.length - 1), c]);
+  function base(extra) {
+    const ax = { gridcolor: T.grid, linecolor: T.axis, zerolinecolor: T.axis, tickfont: { color: T.muted, size: 11 },
+      title: { font: { color: T.ink2, size: 12 } }, automargin: true };
+    const l = {
+      paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)", font: { family: T.font, color: T.ink2, size: 12 },
+      margin: { l: 8, r: 10, t: 8, b: 8 }, showlegend: false, hovermode: "x unified",
+      hoverlabel: { bgcolor: T.surface, bordercolor: T.axis, font: { color: T.ink, family: T.font, size: 12 } },
+      xaxis: Object.assign({}, ax), yaxis: Object.assign({}, ax), barcornerradius: 4,
+    };
+    for (const key in extra || {}) {
+      if ((key === "xaxis" || key === "yaxis") && typeof extra[key] === "object") l[key] = Object.assign({}, l[key], extra[key]);
+      else l[key] = extra[key];
+    }
+    return l;
+  }
+  const CFG = { displayModeBar: false, responsive: true };
+  const draw = (id, data, layout) => Plotly.react($(id), data, layout, CFG);
+  const kLine = (x) => ({ type: "line", x0: x, x1: x, yref: "paper", y0: 0, y1: 1, line: { color: T.muted, width: 1, dash: "dot" } });
+
+  // ---------------------------------------------------------------- static content
+  function staticParts() {
+    const m = D.meta;
+    $("badges").innerHTML = [
+      m.synthetic ? '<span class="badge warn">Synthetic data: illustrative, not market prices</span>' : `<span class="badge">Data: ${m.source}</span>`,
+      `<span class="badge">${m.n_fleets} fleets · ${m.years[0]}–${m.years[1]}</span>`,
+      `<span class="badge">${fmt0(m.exposure)} operator-years · ${fmt0(m.n_claims)} claims</span>`,
+      `<span class="badge">Amounts in ${CUR} per operator-year</span>`,
+    ].join("");
+    $("foot").textContent = `Built ${m.generated} from ${m.source}. Pricing library: Python and R, EBCT Models I and II, Black-Scholes with Greeks.`;
+    $("fleet").innerHTML = D.fleets.map((f, i) => `<option value="${i}">${f}</option>`).join("");
+    const k = $("k"); k.max = KMAX;
+    const sv = D.severity, fits = sv.fits;
+    const rows = Object.keys(fits).map((name) => {
+      const f = fits[name], p = Object.entries(f.params).map(([a, b]) => `${a} ${fmt(b, b > 100 ? 0 : 3)}`).join(", ");
+      return `<tr${name === sv.best ? ' class="sel"' : ""}><td>${name === "lognormal" ? "Log-normal" : "Gamma"}${name === sv.best ? " (best)" : ""}</td><td>${p}</td><td>${fmt0(f.aic)}</td><td>${fmt(f.ks, 3)}</td><td>${f.ks_p < 0.001 ? "&lt; 0.001" : fmt(f.ks_p, 3)}</td><td>${fmt0(f.mean)}</td></tr>`;
+    });
+    $("tbl-sev").innerHTML = `<thead><tr><th>Family</th><th>Parameters</th><th>AIC</th><th>KS</th><th>KS p</th><th>Mean</th></tr></thead><tbody>${rows.join("")}</tbody>`;
+    const g = D.gbm, b = D.bootstrap;
+    $("vol-facts").innerHTML = `<div><b>${pct(g.daily.sigma, 1)}</b><span>σ* from ${g.daily.n} daily returns</span></div>` +
+      `<div><b>${pct(g.monthly.sigma, 1)}</b><span>σ* from ${g.monthly.n} monthly returns</span></div>` +
+      `<div><b>${fmt(D.poisson.rate, 3)}</b><span>claims per operator-year (Poisson)</span></div>` +
+      `<div><b>${fmt0(b.ci_low)}–${fmt0(b.ci_high)}</b><span>95% bootstrap CI, mean ${CUR}/operator</span></div>`;
+  }
+
+  function drawStaticCharts() {
+    const sv = D.severity;
+    draw("c-sev", [
+      { type: "bar", x: sv.hist.centers, y: sv.hist.counts, width: sv.hist.width * 0.9, marker: { color: T.hist }, name: "Observed",
+        hovertemplate: "%{y} claims<extra>Observed</extra>" },
+      { type: "scatter", mode: "lines", x: sv.density_x, y: sv.density.lognormal, line: { color: T.logn, width: 2 }, name: "Log-normal",
+        hovertemplate: "%{y:.1f}<extra>Log-normal</extra>" },
+      { type: "scatter", mode: "lines", x: sv.density_x, y: sv.density.gamma, line: { color: T.gamma, width: 2 }, name: "Gamma",
+        hovertemplate: "%{y:.1f}<extra>Gamma</extra>" },
+    ], base({ xaxis: { title: { text: `Claim amount (${CUR}), up to the 99th percentile` }, hoverformat: ",.0f" }, yaxis: { title: { text: "Claims" } }, barcornerradius: 2 }));
+
+    const ci = D.cost_index;
+    draw("c-cost", [{ type: "scatter", mode: "lines", x: ci.dates, y: ci.values, line: { color: T.ebct, width: 2 }, name: "Index",
+      fill: "tozeroy", fillcolor: T.ebct + "1f", hovertemplate: "%{y:.1f}<extra>Cost index</extra>" }],
+      base({ xaxis: { type: "date" }, yaxis: { title: { text: "Index (start = 100)" }, rangemode: "tozero" } }));
+
+    const p = D.panel;
+    draw("c-panel", [{ type: "heatmap", z: p.x, x: p.years.map(String), y: D.fleets, colorscale: seqScale(), xgap: 2, ygap: 2,
+      texttemplate: "%{z:,.0f}", textfont: { size: 11 }, colorbar: { thickness: 10, outlinewidth: 0, tickfont: { color: T.muted, size: 10 } },
+      hovertemplate: "%{y}, %{x}<br>%{z:,.0f} " + CUR + " per operator<extra></extra>" }],
+      base({ hovermode: "closest", yaxis: { autorange: "reversed", gridcolor: "rgba(0,0,0,0)" }, xaxis: { type: "category", gridcolor: "rgba(0,0,0,0)" } }));
+  }
+
+  // ---------------------------------------------------------------- live charts
+  function update() {
+    const c = cred(), S = c.premium, i = state.fleet, name = D.fleets[i], s = S[i];
+    const rows = D.fleets.map((f, j) => Object.assign({ fleet: f, z: c.z[j], s: S[j], sl: D.frequency[j] * stopLossPerClaim(state.k) },
+      bs(S[j], state.k, TERM, state.r, state.sigma)));
+    const avg = (key) => rows.reduce((a, r) => a + r[key], 0) / rows.length;
+
+    $("k-out").textContent = `${fmt0(state.k)} ${CUR}`;
+    $("sigma-out").textContent = pct(state.sigma);
+    $("r-out").textContent = pct(state.r, 1);
+    document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-pressed", String(+b.dataset.model === state.model)));
+
+    const g = rows[i];
+    $("kpis").innerHTML = [
+      ["Average EBCT premium", fmt0(avg("s")), CUR, `${c.model}, full cover`],
+      ["Average option premium", fmt0(avg("price")), CUR, `${pct(avg("price") / avg("s"))} of EBCT at K = ${fmt0(state.k)}`],
+      ["Average stop-loss premium", fmt0(avg("sl")), CUR, "Deductible applied per claim"],
+      [`${name}: delta / vega`, `${fmt(g.delta, 2)} / ${fmt0(g.vega)}`, "", g.delta > 0.95 ? "Deep in the money: volatility barely matters" : "Near the money: volatility moves the price"],
+    ].map(([l, v, u, n]) => `<div class="kpi"><span class="k-label">${l}</span><span class="k-value">${v}${u ? `<small>${u}</small>` : ""}</span><span class="k-note">${n}</span></div>`).join("");
+
+    // premium by fleet
+    const bar = (key, col, label) => ({ type: "bar", x: D.fleets, y: rows.map((r) => r[key]), name: label, marker: { color: col },
+      hovertemplate: `%{y:,.0f}<extra>${label}</extra>` });
+    draw("c-fleets", [bar("s", T.ebct, "EBCT"), bar("price", T.bs, "Black-Scholes"), bar("sl", T.stop, "Stop-loss")],
+      base({ barmode: "group", bargap: 0.28, bargroupgap: 0.08, yaxis: { title: { text: `${CUR} per operator-year` }, tickformat: ",.0f" } }));
+
+    // premium vs K
+    const ks = linspace(0, KMAX, 161);
+    const gk = ks.map((k) => bs(s, k, TERM, state.r, state.sigma));
+    $("t-vsk").textContent = `${name}: premium vs deductible`;
+    draw("c-vsk", [
+      { type: "scatter", mode: "lines", x: ks, y: ks.map((k) => Math.max(s - k, 0)), line: { color: T.muted, width: 1.5, dash: "dot" }, name: "Intrinsic", hovertemplate: "%{y:,.0f}<extra>Intrinsic</extra>" },
+      { type: "scatter", mode: "lines", x: ks, y: ks.map((k) => D.frequency[i] * stopLossPerClaim(k)), line: { color: T.stop, width: 2 }, name: "Stop-loss", hovertemplate: "%{y:,.0f}<extra>Stop-loss</extra>" },
+      { type: "scatter", mode: "lines", x: ks, y: gk.map((x) => x.price), line: { color: T.bs, width: 2.5 }, name: "Black-Scholes", hovertemplate: "%{y:,.0f}<extra>Black-Scholes</extra>" },
+      { type: "scatter", mode: "markers", x: [state.k], y: [g.price], marker: { color: T.bs, size: 10, line: { color: T.surface, width: 2 } }, hoverinfo: "skip" },
+    ], base({
+      xaxis: { title: { text: `Deductible K (${CUR})` }, tickformat: ",.0f", hoverformat: ",.0f" }, yaxis: { title: { text: "Premium" }, tickformat: ",.0f", rangemode: "tozero" },
+      shapes: [kLine(state.k), { type: "line", xref: "paper", x0: 0, x1: 1, y0: s, y1: s, line: { color: T.ebct, width: 1.5, dash: "dash" } }],
+      annotations: [{ xref: "paper", x: 1, y: s, xanchor: "right", yanchor: "bottom", text: `EBCT S = ${fmt0(s)}`, showarrow: false, font: { color: T.ink2, size: 11 } }],
+    }));
+
+    // heatmap K x sigma
+    const hk = linspace(0, KMAX, 41), hv = linspace(0.05, 1.0, 20);
+    $("t-heat").textContent = `${name}: option premium over K × σ`;
+    draw("c-heat", [
+      { type: "heatmap", x: hk, y: hv, z: hv.map((v) => hk.map((k) => bs(s, k, TERM, state.r, v).price)), colorscale: seqScale(),
+        colorbar: { thickness: 10, outlinewidth: 0, tickformat: ",.0f", tickfont: { color: T.muted, size: 10 } },
+        hovertemplate: "K %{x:,.0f} · σ %{y:.0%}<br>Premium %{z:,.0f}<extra></extra>" },
+      { type: "scatter", mode: "markers", x: [state.k], y: [state.sigma], marker: { color: T.bs, size: 12, line: { color: T.surface, width: 2 } }, hoverinfo: "skip" },
+    ], base({ hovermode: "closest", xaxis: { title: { text: `Deductible K (${CUR})` }, tickformat: ",.0f", gridcolor: "rgba(0,0,0,0)" },
+      yaxis: { title: { text: "Volatility σ" }, tickformat: ".0%", gridcolor: "rgba(0,0,0,0)" } }));
+
+    // greeks small multiples
+    $("t-greeks").textContent = `${name}: Greeks vs deductible`;
+    [["delta", ".2f"], ["gamma", ".2e"], ["vega", ",.0f"], ["rho", ",.0f"]].forEach(([key, f]) => {
+      draw("g-" + key, [{ type: "scatter", mode: "lines", x: ks, y: gk.map((x) => x[key]), line: { color: T.bs, width: 2 },
+        hovertemplate: `%{y:${f}}<extra>${key}</extra>` }],
+        base({ margin: { l: 4, r: 6, t: 4, b: 4 }, shapes: [kLine(state.k)], xaxis: { tickformat: "~s", hoverformat: ",.0f", nticks: 4 },
+          yaxis: { tickformat: key === "gamma" ? ".1e" : "~s", nticks: 4, rangemode: "tozero" } }));
+    });
+
+    // comparison table
+    $("tbl-comp").innerHTML = "<thead><tr><th>Fleet</th><th>Z</th><th>EBCT</th><th>Black-Scholes</th><th>BS / EBCT</th><th>Stop-loss</th><th>Delta</th><th>Gamma</th><th>Vega</th><th>Rho</th><th>Theta</th></tr></thead><tbody>" +
+      rows.map((r, j) => `<tr${j === i ? ' class="sel"' : ""}><td>${r.fleet}</td><td>${fmt(r.z, 3)}</td><td>${fmt0(r.s)}</td><td>${fmt0(r.price)}</td><td>${pct(r.price / r.s)}</td><td>${fmt0(r.sl)}</td><td>${fmt(r.delta, 3)}</td><td>${r.gamma.toExponential(2)}</td><td>${fmt(r.vega, 1)}</td><td>${fmt(r.rho, 1)}</td><td>${fmt(r.theta, 1)}</td></tr>`).join("") + "</tbody>";
+
+    // credibility
+    $("t-z").textContent = `Credibility factor Z (${c.model})`;
+    $("cred-facts").innerHTML = `<div><b>${fmt0(c.grand_mean)}</b><span>E[m(θ)], grand mean</span></div>` +
+      `<div><b>${c.k == null ? "∞" : fmt(c.k, 1)}</b><span>k = E[s²(θ)] / Var[m(θ)]</span></div>` +
+      `<div><b>${fmt(Math.min(...c.z), 2)}–${fmt(Math.max(...c.z), 2)}</b><span>range of Z</span></div>`;
+    draw("c-z", [{ type: "bar", x: D.fleets, y: c.z, marker: { color: D.fleets.map((_, j) => (j === i ? T.ebct : T.ebct + "99")) },
+      text: c.z.map((z) => fmt(z, 2)), textposition: "outside", textfont: { color: T.ink2, size: 11 }, cliponaxis: false,
+      customdata: D.fleets.map((_, j) => [c.risk_means[j], c.premium[j], D.volume[j]]),
+      hovertemplate: "Z %{y:.3f}<br>Own mean %{customdata[0]:,.0f}<br>Premium %{customdata[1]:,.0f}<br>Operator-years %{customdata[2]:,.0f}<extra></extra>" }],
+      base({ yaxis: { range: [0, 1.12], title: { text: "Z" }, tickformat: ".1f" } }));
+
+    // stress table (relative to current setting, selected fleet)
+    const p0 = g.price, rowsS = [];
+    [["Treatment cost", [-0.2, -0.1, 0.1, 0.2, 0.5], (x) => bs(s * (1 + x), state.k, TERM, state.r, state.sigma), (x) => (x > 0 ? "+" : "") + pct(x)],
+     ["Volatility", [-0.1, 0.1, 0.25], (x) => bs(s, state.k, TERM, state.r, Math.max(state.sigma + x, 0)), (x) => (x > 0 ? "+" : "") + Math.round(x * 100) + " vol pts"],
+     ["Interest rate", [-0.02, 0.02, 0.05], (x) => bs(s, state.k, TERM, state.r + x, state.sigma), (x) => (x > 0 ? "+" : "") + Math.round(x * 1e4) + " bp"]]
+      .forEach(([lab, shocks, f, l]) => shocks.forEach((x) => {
+        const pr = f(x).price, ch = pr - p0, pc = p0 > 0 ? ch / p0 : NaN;
+        const cls = Math.abs(ch) < 0.5 ? "" : ch > 0 ? "up" : "down";
+        rowsS.push(`<tr><td>${lab}</td><td>${l(x)}</td><td>${fmt0(pr)}</td><td class="${cls}">${ch >= 0 ? "+" : "−"}${fmt0(Math.abs(ch))}</td><td class="${cls}">${isFinite(pc) ? (pc >= 0 ? "+" : "−") + pct(Math.abs(pc), 1) : "n/a"}</td></tr>`);
+      }));
+    $("t-stress").textContent = `${name}: stress test (base premium ${fmt0(p0)} ${CUR})`;
+    $("tbl-stress").innerHTML = "<thead><tr><th>Factor</th><th>Shock</th><th>Premium</th><th>Change</th><th>% change</th></tr></thead><tbody>" + rowsS.join("") + "</tbody>";
+  }
+
+  // ---------------------------------------------------------------- wiring
+  function syncInputs() { $("k").value = state.k; $("sigma").value = state.sigma; $("r").value = state.r; $("fleet").value = state.fleet; }
+  let raf = 0;
+  const schedule = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(update); };
+  $("k").addEventListener("input", (e) => { state.k = +e.target.value; schedule(); });
+  $("sigma").addEventListener("input", (e) => { state.sigma = +e.target.value; schedule(); });
+  $("r").addEventListener("input", (e) => { state.r = +e.target.value; schedule(); });
+  $("fleet").addEventListener("change", (e) => { state.fleet = +e.target.value; schedule(); });
+  document.querySelectorAll(".seg button").forEach((b) => b.addEventListener("click", () => { state.model = +b.dataset.model; schedule(); }));
+  $("reset").addEventListener("click", () => {
+    Object.assign(state, { k: DEF.k, sigma: Math.round(DEF.sigma * 100) / 100, r: DEF.r, model: 2 }); syncInputs(); schedule();
+  });
+  function retheme() { readTheme(); drawStaticCharts(); update(); }
+  try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme); } catch (e) { /* older browsers */ }
+  new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  staticParts(); syncInputs(); readTheme();
+  if (typeof Plotly === "undefined") {
+    document.querySelectorAll(".chart").forEach((el) => { el.textContent = "Charts could not load (Plotly CDN unreachable). The tables still update."; el.style.height = "auto"; });
+    window.Plotly = { react: () => {} };
+  }
+  drawStaticCharts(); update();
+})();
+</script>
+</body>
+</html>

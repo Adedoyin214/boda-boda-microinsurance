@@ -1,0 +1,475 @@
+<title>Boda-Boda Premium Explorer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Micro-insurance pricing for boda-boda operators: EBCT credibility premiums compared with Black-Scholes option replication, with live deductible, volatility and rate controls.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: header, sticky control strip, KPI row, then paired chart panels grouped by roadmap stage (pricing, credibility, claims data). */
+:root {
+  --plane: #f5f6f4;
+  --surface: #fcfcfb;
+  --ink: #12161b;
+  --ink-2: #4f5560;
+  --muted: #858a8f;
+  --grid: #e3e4df;
+  --axis: #c4c6c0;
+  --line: rgba(18, 22, 27, 0.10);
+  --accent: #2a78d6;
+  --accent-soft: #e4eefb;
+  --s-ebct: #2a78d6;
+  --s-bs: #eb6834;
+  --s-stop: #1baf7a;
+  --s-logn: #6250d6;
+  --s-gamma: #e87ba4;
+  --hist: #c9cdd2;
+  --up: #b4462f;
+  --down: #006300;
+  --seq: #cde2fb,#9ec5f4,#6da7ec,#3987e5,#256abf,#184f95,#0d366b;
+  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --plane: #0f1112; --surface: #1a1b1c; --ink: #eef0ee; --ink-2: #c0c4c6; --muted: #8b9094;
+    --grid: #2b2d2e; --axis: #3a3d3f; --line: rgba(255, 255, 255, 0.10);
+    --accent: #3987e5; --accent-soft: #1b2a3d;
+    --s-ebct: #3987e5; --s-bs: #d95926; --s-stop: #199e70; --s-logn: #9085e9; --s-gamma: #d55181;
+    --hist: #464b50; --up: #ec835a; --down: #0ca30c;
+    --seq: #16263a,#104281,#1c5cab,#2a78d6,#5598e7,#86b6ef,#cde2fb;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --plane: #0f1112; --surface: #1a1b1c; --ink: #eef0ee; --ink-2: #c0c4c6; --muted: #8b9094;
+  --grid: #2b2d2e; --axis: #3a3d3f; --line: rgba(255, 255, 255, 0.10);
+  --accent: #3987e5; --accent-soft: #1b2a3d;
+  --s-ebct: #3987e5; --s-bs: #d95926; --s-stop: #199e70; --s-logn: #9085e9; --s-gamma: #d55181;
+  --hist: #464b50; --up: #ec835a; --down: #0ca30c;
+  --seq: #16263a,#104281,#1c5cab,#2a78d6,#5598e7,#86b6ef,#cde2fb;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--plane); color: var(--ink); font: 14px/1.5 var(--font-body); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--plane); }
+.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+header.top { padding-block: 28px 18px; display: grid; gap: 10px; }
+.eyebrow { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(24px, 3.4vw, 34px); line-height: 1.15; margin: 0; text-wrap: balance; }
+.lede { margin: 0; max-width: 72ch; color: var(--ink-2); }
+.badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.badge { font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); background: var(--surface); }
+.badge.warn { border-color: transparent; background: var(--accent-soft); color: var(--ink); }
+
+.controls { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--plane) 92%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+.controls .wrap { padding-block: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px 22px; align-items: end; }
+.ctl { display: grid; gap: 4px; min-width: 0; }
+.ctl label, .ctl .lbl { font-size: 12px; font-weight: 600; color: var(--ink-2); display: flex; justify-content: space-between; gap: 8px; }
+.ctl output { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
+input[type="range"] { width: 100%; accent-color: var(--accent); margin: 4px 0; }
+select { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { font: inherit; font-size: 13px; padding: 6px 12px; border: 0; background: transparent; color: var(--ink-2); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.reset { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; justify-self: start; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+main { display: grid; gap: 28px; padding-block: 20px 48px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: grid; gap: 2px; }
+.kpi .k-label { font-size: 12px; color: var(--ink-2); }
+.kpi .k-value { font-family: var(--font-display); font-size: 28px; font-weight: 600; line-height: 1.2; }
+.kpi .k-value small { font-size: 13px; font-weight: 500; color: var(--muted); margin-left: 4px; font-family: var(--font-body); }
+.kpi .k-note { font-size: 12px; color: var(--muted); }
+
+section { display: grid; gap: 12px; }
+.sec-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+h2 { font-family: var(--font-display); font-size: 19px; font-weight: 600; margin: 0; }
+.sec-head p { margin: 0; color: var(--muted); font-size: 13px; max-width: 70ch; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 14px 8px; min-width: 0; display: grid; gap: 6px; align-content: start; }
+.panel h3 { font-size: 14px; font-weight: 600; margin: 0; }
+.panel .cap { font-size: 12px; color: var(--muted); margin: 0; }
+.chart { width: 100%; height: 320px; }
+.greeks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; }
+.greeks .chart { height: 150px; }
+.greeks .g-title { font-size: 12px; color: var(--ink-2); margin: 4px 0 0 4px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 14px; height: 4px; border-radius: 2px; display: inline-block; }
+.legend i.dot { width: 10px; height: 10px; border-radius: 3px; }
+
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+th:first-child, td:first-child { text-align: left; }
+tbody tr.sel { background: var(--accent-soft); }
+td.up { color: var(--up); } td.down { color: var(--down); }
+.fact { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 16px; margin: 4px 0 6px; }
+.fact div { display: grid; }
+.fact b { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.fact span { font-size: 12px; color: var(--muted); }
+
+.notes { color: var(--ink-2); font-size: 13px; display: grid; gap: 8px; max-width: 90ch; }
+.notes p { margin: 0; }
+code { font-size: 12px; background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+footer { color: var(--muted); font-size: 12px; padding-block: 0 32px; }
+.noscript { padding: 16px; background: var(--accent-soft); border-radius: var(--radius); }
+
+@media (max-width: 860px) { .grid2 { grid-template-columns: minmax(0, 1fr); } .chart { height: 290px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<!--BODY-->
+<header class="top wrap">
+  <div class="eyebrow">MScFE industrial project · Micro-insurance for informal workers</div>
+  <h1>Boda-Boda Premium Explorer</h1>
+  <p class="lede">Accident and health cover for motorcycle-taxi operators, priced two ways: Empirical Bayes credibility (EBCT) from each fleet's claims history, and a Black-Scholes call on the annual treatment cost, with the policy deductible as the strike. Move the controls to re-price every fleet.</p>
+  <div class="badges" id="badges"></div>
+</header>
+
+<div class="controls">
+  <div class="wrap">
+    <div class="ctl"><label for="k">Deductible K <output id="k-out"></output></label><input id="k" type="range" min="0" step="50"></div>
+    <div class="ctl"><label for="sigma">Volatility σ <output id="sigma-out"></output></label><input id="sigma" type="range" min="0.05" max="1" step="0.01"></div>
+    <div class="ctl"><label for="r">Risk-free rate r <output id="r-out"></output></label><input id="r" type="range" min="0" max="0.25" step="0.005"></div>
+    <div class="ctl"><span class="lbl">Credibility model</span>
+      <div class="seg" role="group" aria-label="EBCT model">
+        <button type="button" id="m1" data-model="1" aria-pressed="false">Model I</button>
+        <button type="button" id="m2" data-model="2" aria-pressed="true">Model II</button>
+      </div></div>
+    <div class="ctl"><label for="fleet">Fleet in detail charts</label><select id="fleet"></select></div>
+    <button type="button" class="reset" id="reset">Reset to estimates</button>
+  </div>
+</div>
+
+<main class="wrap">
+  <noscript><div class="noscript">This dashboard needs JavaScript to draw its charts.</div></noscript>
+  <div class="kpis" id="kpis"></div>
+
+  <section>
+    <div class="sec-head"><h2>Premiums</h2><p>Underlying S is each fleet's EBCT credibility premium. The option pays the yearly cost above K; the stop-loss benchmark applies K to each claim instead.</p></div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Premium by fleet</h3>
+        <div class="legend"><span><i style="background:var(--s-ebct)"></i>EBCT credibility</span><span><i style="background:var(--s-bs)"></i>Black-Scholes call</span><span><i style="background:var(--s-stop)"></i>Stop-loss (per claim)</span></div>
+        <div class="chart" id="c-fleets" role="img" aria-label="Grouped bar chart of premiums by fleet"></div>
+      </div>
+      <div class="panel">
+        <h3 id="t-vsk">Premium vs deductible</h3>
+        <div class="legend"><span><i style="background:var(--s-bs)"></i>Black-Scholes call</span><span><i style="background:var(--s-stop)"></i>Stop-loss (per claim)</span><span><i style="background:var(--muted)"></i>Intrinsic max(S − K, 0)</span><span><i style="background:var(--s-ebct)"></i>EBCT premium S</span></div>
+        <div class="chart" id="c-vsk" role="img" aria-label="Line chart of premium against deductible"></div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h3 id="t-heat">Option premium over K × σ</h3>
+        <p class="cap">Volatility only matters once the deductible nears the expected cost. The marker is the current setting.</p>
+        <div class="chart" id="c-heat" role="img" aria-label="Heatmap of option premium by deductible and volatility"></div>
+      </div>
+      <div class="panel">
+        <h3 id="t-greeks">Greeks vs deductible</h3>
+        <p class="cap">Sensitivities of the option premium; the vertical line is the current K.</p>
+        <div class="greeks">
+          <div><div class="g-title">Delta ∂C/∂S</div><div class="chart" id="g-delta"></div></div>
+          <div><div class="g-title">Gamma ∂²C/∂S²</div><div class="chart" id="g-gamma"></div></div>
+          <div><div class="g-title">Vega ∂C/∂σ (per 1.00 of vol)</div><div class="chart" id="g-vega"></div></div>
+          <div><div class="g-title">Rho ∂C/∂r (per 1.00 of rate)</div><div class="chart" id="g-rho"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Comparison table</h3>
+      <div class="tbl-wrap"><table id="tbl-comp"></table></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Credibility (EBCT)</h2><p>How far each fleet's premium leans on its own experience versus the portfolio mean.</p></div>
+    <div class="grid2">
+      <div class="panel">
+        <h3 id="t-z">Credibility factor Z</h3>
+        <div class="fact" id="cred-facts"></div>
+        <div class="chart" id="c-z" role="img" aria-label="Bar chart of credibility factor by fleet"></div>
+      </div>
+      <div class="panel">
+        <h3>Claims per operator, X<sub>ij</sub> = Y<sub>ij</sub> / P<sub>ij</sub></h3>
+        <p class="cap">KES per operator-year by fleet and policy year: the raw experience EBCT smooths.</p>
+        <div class="chart" id="c-panel" role="img" aria-label="Heat table of claims per operator by fleet and year"></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Claims data and stress tests</h2><p>Week 1 fits and Week 3 volatility that feed the prices above.</p></div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Claim severity</h3>
+        <div class="legend"><span><i class="dot" style="background:var(--hist)"></i>Observed claims</span><span><i style="background:var(--s-logn)"></i>Log-normal fit</span><span><i style="background:var(--s-gamma)"></i>Gamma fit</span></div>
+        <div class="chart" id="c-sev" role="img" aria-label="Histogram of claim amounts with fitted densities"></div>
+        <div class="tbl-wrap"><table id="tbl-sev"></table></div>
+      </div>
+      <div class="panel">
+        <h3>Treatment-cost index</h3>
+        <div class="fact" id="vol-facts"></div>
+        <div class="chart" id="c-cost" role="img" aria-label="Line chart of the treatment cost index"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3 id="t-stress">Stress test</h3>
+      <p class="cap">One factor at a time against the current setting. Cost shocks are relative; volatility and rate shocks are absolute.</p>
+      <div class="tbl-wrap"><table id="tbl-stress"></table></div>
+    </div>
+  </section>
+
+  <section class="notes">
+    <h2>How to read this</h2>
+    <p><b>Option mapping.</b> S = expected annual treatment cost per operator (the EBCT premium), K = deductible, T − t = 1 year, r = short sovereign rate, σ = volatility of the treatment-cost index. Premium C = S·N(d₁) − K·e<sup>−rT</sup>·N(d₂). With K = 0 and r = 0 the option premium equals the EBCT premium.</p>
+    <p><b>Limits.</b> Treatment costs are not traded, so the formula is a lognormal pricing model with r as the discount rate, not an arbitrage price. Defaults for K and r are illustrative. Gross premiums would add expense and risk loadings.</p>
+    <p><b>Reproduce.</b> <code>python -m micro_insurance.pipeline</code> computes the inputs; <code>python -m micro_insurance.static_dashboard</code> rebuilds this page.</p>
+  </section>
+</main>
+<footer class="wrap" id="foot"></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.2/plotly.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  const D = /*__DASHBOARD_DATA__*/null;
+  if (!D) { document.getElementById("kpis").textContent = "No data embedded. Rebuild with python -m micro_insurance.static_dashboard."; return; }
+  const $ = (id) => document.getElementById(id);
+  const CUR = D.meta.currency;
+  const fmt0 = (v) => Number(v).toLocaleString("en-US", { maximumFractionDigits: 0 });
+  const fmt = (v, d) => Number(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const pct = (v, d = 0) => (v * 100).toFixed(d) + "%";
+
+  // ---------------------------------------------------------------- math (mirrors micro_insurance/pricing.py)
+  function erfc(x) { // Numerical Recipes erfcc, |rel err| < 1.2e-7
+    const z = Math.abs(x), t = 1 / (1 + 0.5 * z);
+    const r = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 + t * (0.09678418 + t * (-0.18628806 +
+      t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+    return x >= 0 ? r : 2 - r;
+  }
+  const N = (x) => 0.5 * erfc(-x / Math.SQRT2);
+  const npdf = (x) => Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
+  function bs(s, k, tau, r, sig) {
+    const disc = Math.exp(-r * tau);
+    if (!(k > 0 && sig * Math.sqrt(tau) > 0)) {
+      const itm = s > k * disc ? 1 : 0;
+      return { price: Math.max(s - k * disc, 0), delta: itm, gamma: 0, vega: 0, rho: k * tau * disc * itm, theta: -r * k * disc * itm };
+    }
+    const st = Math.sqrt(tau), v = sig * st;
+    const d1 = (Math.log(s / k) + (r + 0.5 * sig * sig) * tau) / v, d2 = d1 - v;
+    return {
+      price: s * N(d1) - k * disc * N(d2), delta: N(d1), gamma: npdf(d1) / (s * v), vega: s * npdf(d1) * st,
+      rho: k * tau * disc * N(d2), theta: -s * npdf(d1) * sig / (2 * st) - r * k * disc * N(d2),
+    };
+  }
+  function stopLossPerClaim(k) { // linear interpolation of the exported E[(X-K)+] curve
+    const xs = D.stop_loss.k, ys = D.stop_loss.per_claim;
+    if (k <= xs[0]) return ys[0];
+    if (k >= xs[xs.length - 1]) return ys[ys.length - 1];
+    let i = 1; while (xs[i] < k) i++;
+    const w = (k - xs[i - 1]) / (xs[i] - xs[i - 1]);
+    return ys[i - 1] + w * (ys[i] - ys[i - 1]);
+  }
+  const linspace = (a, b, n) => Array.from({ length: n }, (_, i) => a + (b - a) * i / (n - 1));
+
+  // ---------------------------------------------------------------- state
+  const DEF = D.defaults, KMAX = D.defaults.k_max, TERM = D.defaults.term;
+  const state = { k: DEF.k, sigma: Math.round(DEF.sigma * 100) / 100, r: DEF.r, model: 2, fleet: 0 };
+  const cred = () => (state.model === 1 ? D.ebct1 : D.ebct2);
+
+  // ---------------------------------------------------------------- theme
+  let T = {};
+  function readTheme() {
+    const cs = getComputedStyle(document.documentElement), g = (n) => cs.getPropertyValue(n).trim();
+    T = { ink: g("--ink"), ink2: g("--ink-2"), muted: g("--muted"), grid: g("--grid"), axis: g("--axis"), surface: g("--surface"),
+      ebct: g("--s-ebct"), bs: g("--s-bs"), stop: g("--s-stop"), logn: g("--s-logn"), gamma: g("--s-gamma"), hist: g("--hist"),
+      seq: g("--seq").split(",").map((s) => s.trim()), font: g("--font-body") };
+  }
+  const seqScale = () => T.seq.map((c, i) => [i / (T.seq.length - 1), c]);
+  function base(extra) {
+    const ax = { gridcolor: T.grid, linecolor: T.axis, zerolinecolor: T.axis, tickfont: { color: T.muted, size: 11 },
+      title: { font: { color: T.ink2, size: 12 } }, automargin: true };
+    const l = {
+      paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)", font: { family: T.font, color: T.ink2, size: 12 },
+      margin: { l: 8, r: 10, t: 8, b: 8 }, showlegend: false, hovermode: "x unified",
+      hoverlabel: { bgcolor: T.surface, bordercolor: T.axis, font: { color: T.ink, family: T.font, size: 12 } },
+      xaxis: Object.assign({}, ax), yaxis: Object.assign({}, ax), barcornerradius: 4,
+    };
+    for (const key in extra || {}) {
+      if ((key === "xaxis" || key === "yaxis") && typeof extra[key] === "object") l[key] = Object.assign({}, l[key], extra[key]);
+      else l[key] = extra[key];
+    }
+    return l;
+  }
+  const CFG = { displayModeBar: false, responsive: true };
+  const draw = (id, data, layout) => Plotly.react($(id), data, layout, CFG);
+  const kLine = (x) => ({ type: "line", x0: x, x1: x, yref: "paper", y0: 0, y1: 1, line: { color: T.muted, width: 1, dash: "dot" } });
+
+  // ---------------------------------------------------------------- static content
+  function staticParts() {
+    const m = D.meta;
+    $("badges").innerHTML = [
+      m.synthetic ? '<span class="badge warn">Synthetic data: illustrative, not market prices</span>' : `<span class="badge">Data: ${m.source}</span>`,
+      `<span class="badge">${m.n_fleets} fleets · ${m.years[0]}–${m.years[1]}</span>`,
+      `<span class="badge">${fmt0(m.exposure)} operator-years · ${fmt0(m.n_claims)} claims</span>`,
+      `<span class="badge">Amounts in ${CUR} per operator-year</span>`,
+    ].join("");
+    $("foot").textContent = `Built ${m.generated} from ${m.source}. Pricing library: Python and R, EBCT Models I and II, Black-Scholes with Greeks.`;
+    $("fleet").innerHTML = D.fleets.map((f, i) => `<option value="${i}">${f}</option>`).join("");
+    const k = $("k"); k.max = KMAX;
+    const sv = D.severity, fits = sv.fits;
+    const rows = Object.keys(fits).map((name) => {
+      const f = fits[name], p = Object.entries(f.params).map(([a, b]) => `${a} ${fmt(b, b > 100 ? 0 : 3)}`).join(", ");
+      return `<tr${name === sv.best ? ' class="sel"' : ""}><td>${name === "lognormal" ? "Log-normal" : "Gamma"}${name === sv.best ? " (best)" : ""}</td><td>${p}</td><td>${fmt0(f.aic)}</td><td>${fmt(f.ks, 3)}</td><td>${f.ks_p < 0.001 ? "&lt; 0.001" : fmt(f.ks_p, 3)}</td><td>${fmt0(f.mean)}</td></tr>`;
+    });
+    $("tbl-sev").innerHTML = `<thead><tr><th>Family</th><th>Parameters</th><th>AIC</th><th>KS</th><th>KS p</th><th>Mean</th></tr></thead><tbody>${rows.join("")}</tbody>`;
+    const g = D.gbm, b = D.bootstrap;
+    $("vol-facts").innerHTML = `<div><b>${pct(g.daily.sigma, 1)}</b><span>σ* from ${g.daily.n} daily returns</span></div>` +
+      `<div><b>${pct(g.monthly.sigma, 1)}</b><span>σ* from ${g.monthly.n} monthly returns</span></div>` +
+      `<div><b>${fmt(D.poisson.rate, 3)}</b><span>claims per operator-year (Poisson)</span></div>` +
+      `<div><b>${fmt0(b.ci_low)}–${fmt0(b.ci_high)}</b><span>95% bootstrap CI, mean ${CUR}/operator</span></div>`;
+  }
+
+  function drawStaticCharts() {
+    const sv = D.severity;
+    draw("c-sev", [
+      { type: "bar", x: sv.hist.centers, y: sv.hist.counts, width: sv.hist.width * 0.9, marker: { color: T.hist }, name: "Observed",
+        hovertemplate: "%{y} claims<extra>Observed</extra>" },
+      { type: "scatter", mode: "lines", x: sv.density_x, y: sv.density.lognormal, line: { color: T.logn, width: 2 }, name: "Log-normal",
+        hovertemplate: "%{y:.1f}<extra>Log-normal</extra>" },
+      { type: "scatter", mode: "lines", x: sv.density_x, y: sv.density.gamma, line: { color: T.gamma, width: 2 }, name: "Gamma",
+        hovertemplate: "%{y:.1f}<extra>Gamma</extra>" },
+    ], base({ xaxis: { title: { text: `Claim amount (${CUR}), up to the 99th percentile` }, hoverformat: ",.0f" }, yaxis: { title: { text: "Claims" } }, barcornerradius: 2 }));
+
+    const ci = D.cost_index;
+    draw("c-cost", [{ type: "scatter", mode: "lines", x: ci.dates, y: ci.values, line: { color: T.ebct, width: 2 }, name: "Index",
+      fill: "tozeroy", fillcolor: T.ebct + "1f", hovertemplate: "%{y:.1f}<extra>Cost index</extra>" }],
+      base({ xaxis: { type: "date" }, yaxis: { title: { text: "Index (start = 100)" }, rangemode: "tozero" } }));
+
+    const p = D.panel;
+    draw("c-panel", [{ type: "heatmap", z: p.x, x: p.years.map(String), y: D.fleets, colorscale: seqScale(), xgap: 2, ygap: 2,
+      texttemplate: "%{z:,.0f}", textfont: { size: 11 }, colorbar: { thickness: 10, outlinewidth: 0, tickfont: { color: T.muted, size: 10 } },
+      hovertemplate: "%{y}, %{x}<br>%{z:,.0f} " + CUR + " per operator<extra></extra>" }],
+      base({ hovermode: "closest", yaxis: { autorange: "reversed", gridcolor: "rgba(0,0,0,0)" }, xaxis: { type: "category", gridcolor: "rgba(0,0,0,0)" } }));
+  }
+
+  // ---------------------------------------------------------------- live charts
+  function update() {
+    const c = cred(), S = c.premium, i = state.fleet, name = D.fleets[i], s = S[i];
+    const rows = D.fleets.map((f, j) => Object.assign({ fleet: f, z: c.z[j], s: S[j], sl: D.frequency[j] * stopLossPerClaim(state.k) },
+      bs(S[j], state.k, TERM, state.r, state.sigma)));
+    const avg = (key) => rows.reduce((a, r) => a + r[key], 0) / rows.length;
+
+    $("k-out").textContent = `${fmt0(state.k)} ${CUR}`;
+    $("sigma-out").textContent = pct(state.sigma);
+    $("r-out").textContent = pct(state.r, 1);
+    document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-pressed", String(+b.dataset.model === state.model)));
+
+    const g = rows[i];
+    $("kpis").innerHTML = [
+      ["Average EBCT premium", fmt0(avg("s")), CUR, `${c.model}, full cover`],
+      ["Average option premium", fmt0(avg("price")), CUR, `${pct(avg("price") / avg("s"))} of EBCT at K = ${fmt0(state.k)}`],
+      ["Average stop-loss premium", fmt0(avg("sl")), CUR, "Deductible applied per claim"],
+      [`${name}: delta / vega`, `${fmt(g.delta, 2)} / ${fmt0(g.vega)}`, "", g.delta > 0.95 ? "Deep in the money: volatility barely matters" : "Near the money: volatility moves the price"],
+    ].map(([l, v, u, n]) => `<div class="kpi"><span class="k-label">${l}</span><span class="k-value">${v}${u ? `<small>${u}</small>` : ""}</span><span class="k-note">${n}</span></div>`).join("");
+
+    // premium by fleet
+    const bar = (key, col, label) => ({ type: "bar", x: D.fleets, y: rows.map((r) => r[key]), name: label, marker: { color: col },
+      hovertemplate: `%{y:,.0f}<extra>${label}</extra>` });
+    draw("c-fleets", [bar("s", T.ebct, "EBCT"), bar("price", T.bs, "Black-Scholes"), bar("sl", T.stop, "Stop-loss")],
+      base({ barmode: "group", bargap: 0.28, bargroupgap: 0.08, yaxis: { title: { text: `${CUR} per operator-year` }, tickformat: ",.0f" } }));
+
+    // premium vs K
+    const ks = linspace(0, KMAX, 161);
+    const gk = ks.map((k) => bs(s, k, TERM, state.r, state.sigma));
+    $("t-vsk").textContent = `${name}: premium vs deductible`;
+    draw("c-vsk", [
+      { type: "scatter", mode: "lines", x: ks, y: ks.map((k) => Math.max(s - k, 0)), line: { color: T.muted, width: 1.5, dash: "dot" }, name: "Intrinsic", hovertemplate: "%{y:,.0f}<extra>Intrinsic</extra>" },
+      { type: "scatter", mode: "lines", x: ks, y: ks.map((k) => D.frequency[i] * stopLossPerClaim(k)), line: { color: T.stop, width: 2 }, name: "Stop-loss", hovertemplate: "%{y:,.0f}<extra>Stop-loss</extra>" },
+      { type: "scatter", mode: "lines", x: ks, y: gk.map((x) => x.price), line: { color: T.bs, width: 2.5 }, name: "Black-Scholes", hovertemplate: "%{y:,.0f}<extra>Black-Scholes</extra>" },
+      { type: "scatter", mode: "markers", x: [state.k], y: [g.price], marker: { color: T.bs, size: 10, line: { color: T.surface, width: 2 } }, hoverinfo: "skip" },
+    ], base({
+      xaxis: { title: { text: `Deductible K (${CUR})` }, tickformat: ",.0f", hoverformat: ",.0f" }, yaxis: { title: { text: "Premium" }, tickformat: ",.0f", rangemode: "tozero" },
+      shapes: [kLine(state.k), { type: "line", xref: "paper", x0: 0, x1: 1, y0: s, y1: s, line: { color: T.ebct, width: 1.5, dash: "dash" } }],
+      annotations: [{ xref: "paper", x: 1, y: s, xanchor: "right", yanchor: "bottom", text: `EBCT S = ${fmt0(s)}`, showarrow: false, font: { color: T.ink2, size: 11 } }],
+    }));
+
+    // heatmap K x sigma
+    const hk = linspace(0, KMAX, 41), hv = linspace(0.05, 1.0, 20);
+    $("t-heat").textContent = `${name}: option premium over K × σ`;
+    draw("c-heat", [
+      { type: "heatmap", x: hk, y: hv, z: hv.map((v) => hk.map((k) => bs(s, k, TERM, state.r, v).price)), colorscale: seqScale(),
+        colorbar: { thickness: 10, outlinewidth: 0, tickformat: ",.0f", tickfont: { color: T.muted, size: 10 } },
+        hovertemplate: "K %{x:,.0f} · σ %{y:.0%}<br>Premium %{z:,.0f}<extra></extra>" },
+      { type: "scatter", mode: "markers", x: [state.k], y: [state.sigma], marker: { color: T.bs, size: 12, line: { color: T.surface, width: 2 } }, hoverinfo: "skip" },
+    ], base({ hovermode: "closest", xaxis: { title: { text: `Deductible K (${CUR})` }, tickformat: ",.0f", gridcolor: "rgba(0,0,0,0)" },
+      yaxis: { title: { text: "Volatility σ" }, tickformat: ".0%", gridcolor: "rgba(0,0,0,0)" } }));
+
+    // greeks small multiples
+    $("t-greeks").textContent = `${name}: Greeks vs deductible`;
+    [["delta", ".2f"], ["gamma", ".2e"], ["vega", ",.0f"], ["rho", ",.0f"]].forEach(([key, f]) => {
+      draw("g-" + key, [{ type: "scatter", mode: "lines", x: ks, y: gk.map((x) => x[key]), line: { color: T.bs, width: 2 },
+        hovertemplate: `%{y:${f}}<extra>${key}</extra>` }],
+        base({ margin: { l: 4, r: 6, t: 4, b: 4 }, shapes: [kLine(state.k)], xaxis: { tickformat: "~s", hoverformat: ",.0f", nticks: 4 },
+          yaxis: { tickformat: key === "gamma" ? ".1e" : "~s", nticks: 4, rangemode: "tozero" } }));
+    });
+
+    // comparison table
+    $("tbl-comp").innerHTML = "<thead><tr><th>Fleet</th><th>Z</th><th>EBCT</th><th>Black-Scholes</th><th>BS / EBCT</th><th>Stop-loss</th><th>Delta</th><th>Gamma</th><th>Vega</th><th>Rho</th><th>Theta</th></tr></thead><tbody>" +
+      rows.map((r, j) => `<tr${j === i ? ' class="sel"' : ""}><td>${r.fleet}</td><td>${fmt(r.z, 3)}</td><td>${fmt0(r.s)}</td><td>${fmt0(r.price)}</td><td>${pct(r.price / r.s)}</td><td>${fmt0(r.sl)}</td><td>${fmt(r.delta, 3)}</td><td>${r.gamma.toExponential(2)}</td><td>${fmt(r.vega, 1)}</td><td>${fmt(r.rho, 1)}</td><td>${fmt(r.theta, 1)}</td></tr>`).join("") + "</tbody>";
+
+    // credibility
+    $("t-z").textContent = `Credibility factor Z (${c.model})`;
+    $("cred-facts").innerHTML = `<div><b>${fmt0(c.grand_mean)}</b><span>E[m(θ)], grand mean</span></div>` +
+      `<div><b>${c.k == null ? "∞" : fmt(c.k, 1)}</b><span>k = E[s²(θ)] / Var[m(θ)]</span></div>` +
+      `<div><b>${fmt(Math.min(...c.z), 2)}–${fmt(Math.max(...c.z), 2)}</b><span>range of Z</span></div>`;
+    draw("c-z", [{ type: "bar", x: D.fleets, y: c.z, marker: { color: D.fleets.map((_, j) => (j === i ? T.ebct : T.ebct + "99")) },
+      text: c.z.map((z) => fmt(z, 2)), textposition: "outside", textfont: { color: T.ink2, size: 11 }, cliponaxis: false,
+      customdata: D.fleets.map((_, j) => [c.risk_means[j], c.premium[j], D.volume[j]]),
+      hovertemplate: "Z %{y:.3f}<br>Own mean %{customdata[0]:,.0f}<br>Premium %{customdata[1]:,.0f}<br>Operator-years %{customdata[2]:,.0f}<extra></extra>" }],
+      base({ yaxis: { range: [0, 1.12], title: { text: "Z" }, tickformat: ".1f" } }));
+
+    // stress table (relative to current setting, selected fleet)
+    const p0 = g.price, rowsS = [];
+    [["Treatment cost", [-0.2, -0.1, 0.1, 0.2, 0.5], (x) => bs(s * (1 + x), state.k, TERM, state.r, state.sigma), (x) => (x > 0 ? "+" : "") + pct(x)],
+     ["Volatility", [-0.1, 0.1, 0.25], (x) => bs(s, state.k, TERM, state.r, Math.max(state.sigma + x, 0)), (x) => (x > 0 ? "+" : "") + Math.round(x * 100) + " vol pts"],
+     ["Interest rate", [-0.02, 0.02, 0.05], (x) => bs(s, state.k, TERM, state.r + x, state.sigma), (x) => (x > 0 ? "+" : "") + Math.round(x * 1e4) + " bp"]]
+      .forEach(([lab, shocks, f, l]) => shocks.forEach((x) => {
+        const pr = f(x).price, ch = pr - p0, pc = p0 > 0 ? ch / p0 : NaN;
+        const cls = Math.abs(ch) < 0.5 ? "" : ch > 0 ? "up" : "down";
+        rowsS.push(`<tr><td>${lab}</td><td>${l(x)}</td><td>${fmt0(pr)}</td><td class="${cls}">${ch >= 0 ? "+" : "−"}${fmt0(Math.abs(ch))}</td><td class="${cls}">${isFinite(pc) ? (pc >= 0 ? "+" : "−") + pct(Math.abs(pc), 1) : "n/a"}</td></tr>`);
+      }));
+    $("t-stress").textContent = `${name}: stress test (base premium ${fmt0(p0)} ${CUR})`;
+    $("tbl-stress").innerHTML = "<thead><tr><th>Factor</th><th>Shock</th><th>Premium</th><th>Change</th><th>% change</th></tr></thead><tbody>" + rowsS.join("") + "</tbody>";
+  }
+
+  // ---------------------------------------------------------------- wiring
+  function syncInputs() { $("k").value = state.k; $("sigma").value = state.sigma; $("r").value = state.r; $("fleet").value = state.fleet; }
+  let raf = 0;
+  const schedule = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(update); };
+  $("k").addEventListener("input", (e) => { state.k = +e.target.value; schedule(); });
+  $("sigma").addEventListener("input", (e) => { state.sigma = +e.target.value; schedule(); });
+  $("r").addEventListener("input", (e) => { state.r = +e.target.value; schedule(); });
+  $("fleet").addEventListener("change", (e) => { state.fleet = +e.target.value; schedule(); });
+  document.querySelectorAll(".seg button").forEach((b) => b.addEventListener("click", () => { state.model = +b.dataset.model; schedule(); }));
+  $("reset").addEventListener("click", () => {
+    Object.assign(state, { k: DEF.k, sigma: Math.round(DEF.sigma * 100) / 100, r: DEF.r, model: 2 }); syncInputs(); schedule();
+  });
+  function retheme() { readTheme(); drawStaticCharts(); update(); }
+  try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme); } catch (e) { /* older browsers */ }
+  new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  staticParts(); syncInputs(); readTheme();
+  if (typeof Plotly === "undefined") {
+    document.querySelectorAll(".chart").forEach((el) => { el.textContent = "Charts could not load (Plotly CDN unreachable). The tables still update."; el.style.height = "auto"; });
+    window.Plotly = { react: () => {} };
+  }
+  drawStaticCharts(); update();
+})();
+</script>
